@@ -1,0 +1,30 @@
+# Once a day, GitHub's own servers fetch the school's athletics calendar and
+# commit the tidied result here. The planner reads athletics.json straight from
+# this repo. A failed fetch fails the run, leaves the last good file in place,
+# and GitHub emails the repo owner.
+#
+# The commit happens every day even when no game changed, because checkedAt
+# moves. That is useful: GitHub pauses scheduled jobs in a repo with no activity
+# for 60 days, and this keeps the job alive through the off-season.
+name: Refresh athletics
+on:
+  schedule:
+    - cron: '17 10 * * *'   # 10:17 UTC, about 6 AM in Boston
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and tidy the schedule
+        run: node athletics-sync.mjs athletics.json
+      - name: Publish it
+        run: |
+          git config user.name "athletics-bot"
+          git config user.email "athletics-bot@users.noreply.github.com"
+          git add athletics.json
+          git commit -m "Refresh athletics schedule" || exit 0
+          git push
